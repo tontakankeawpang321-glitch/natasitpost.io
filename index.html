@@ -58,9 +58,12 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        .fab-button {
-            box-shadow: 0 4px 20px rgba(155, 28, 28, 0.5);
-            z-index: 50;
+        /* ปรับปรุง Bottom Nav ให้ดูดี */
+        .bottom-nav-item {
+            @apply flex flex-col items-center justify-center text-stone-400 text-[10px] font-bold py-1 flex-1 transition-all;
+        }
+        .bottom-nav-item.active {
+            @apply text-thai-red;
         }
 
         /* เพิ่ม style สำหรับ popup รูปภาพให้สวยงาม */
@@ -71,6 +74,11 @@
             border-radius: 8px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
             background: white;
+        }
+        
+        /* พื้นที่ปลอดภัยด้านล่างสำหรับ Bottom Nav */
+        .pb-safe-nav {
+            padding-bottom: 80px;
         }
     </style>
 </head>
@@ -94,6 +102,12 @@
                         </div>
                     </h1>
                     <div class="flex gap-2">
+                        <!-- ปุ่มรายการโปรด -->
+                        <button onclick="showFavorites()" class="p-2 text-stone-400 hover:text-thai-red hover:bg-red-50 transition-colors bg-stone-50 rounded-full relative">
+                            <i data-lucide="heart" width="18"></i>
+                            <span id="fav-badge" class="absolute top-0 right-0 w-2.5 h-2.5 bg-thai-red rounded-full border-2 border-white hidden"></span>
+                        </button>
+                        <!-- ปุ่มรีเฟรช -->
                         <button onclick="fetchPosts()" class="p-2 text-stone-400 hover:text-thai-red transition-colors bg-stone-50 rounded-full">
                             <i data-lucide="refresh-cw" width="18"></i>
                         </button>
@@ -128,12 +142,26 @@
             </header>
 
             <!-- List -->
-            <div id="post-list" class="flex-1 overflow-y-auto p-4 space-y-4 pb-24 bg-[#fdfaf3]"></div>
+            <div id="post-list" class="flex-1 overflow-y-auto p-4 space-y-4 pb-safe-nav bg-[#fdfaf3]"></div>
 
-            <!-- FAB: Add Button -->
-            <button onclick="router.navigate('create')" class="fab-button absolute bottom-6 right-6 w-14 h-14 bg-thai-red text-white rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all">
-                <i data-lucide="plus" width="28"></i>
-            </button>
+            <!-- Bottom Navigation Bar (แทนที่ FAB เดิม) -->
+            <div class="absolute bottom-0 left-0 right-0 bg-white border-t border-stone-200 flex justify-around items-center shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] z-40 pb-safe pt-1">
+                <button onclick="router.navigate('home')" class="bottom-nav-item active">
+                    <div class="p-1 mb-0.5"><i data-lucide="home" width="22"></i></div>
+                    หน้าหลัก
+                </button>
+                
+                <div class="-mt-8">
+                     <button onclick="router.navigate('create')" class="bg-thai-red text-white w-14 h-14 rounded-full flex items-center justify-center shadow-lg border-4 border-[#fdfaf3] hover:scale-105 active:scale-95 transition-transform">
+                        <i data-lucide="plus" width="28"></i>
+                    </button>
+                </div>
+
+                <button onclick="showFavorites()" class="bottom-nav-item">
+                     <div class="p-1 mb-0.5"><i data-lucide="heart" width="22"></i></div>
+                    รายการโปรด
+                </button>
+            </div>
         </div>
 
         <!-- ================= VIEW: DETAIL ================= -->
@@ -253,12 +281,10 @@
 
         const performanceTypes = ['ทั้งหมด', 'ฟ้อนรำไทย', 'รำมาตรฐาน', 'โขน/ละคร', 'รำแก้บน', 'รำพื้นเมือง', 'กลองยาว/แตรวง'];
         
-        // ข้อมูล 77 จังหวัด (ใช้ Array นี้เพื่อความรวดเร็วและครบถ้วน)
         const allProvinces = [
             "กรุงเทพมหานคร", "กระบี่", "กาญจนบุรี", "กาฬสินธุ์", "กำแพงเพชร", "ขอนแก่น", "จันทบุรี", "ฉะเชิงเทรา", "ชลบุรี", "ชัยนาท", "ชัยภูมิ", "ชุมพร", "เชียงราย", "เชียงใหม่", "ตรัง", "ตราด", "ตาก", "นครนายก", "นครปฐม", "นครพนม", "นครราชสีมา", "นครศรีธรรมราช", "นครสวรรค์", "นนทบุรี", "นราธิวาส", "น่าน", "บึงกาฬ", "บุรีรัมย์", "ปทุมธานี", "ประจวบคีรีขันธ์", "ปราจีนบุรี", "ปัตตานี", "พระนครศรีอยุธยา", "พะเยา", "พังงา", "พัทลุง", "พิจิตร", "พิษณุโลก", "เพชรบุรี", "เพชรบูรณ์", "แพร่", "ภูเก็ต", "มหาสารคาม", "มุกดาหาร", "แม่ฮ่องสอน", "ยโสธร", "ยะลา", "ร้อยเอ็ด", "ระนอง", "ระยอง", "ราชบุรี", "ลพบุรี", "ลำปาง", "ลำพูน", "เลย", "ศรีสะเกษ", "สกลนคร", "สงขลา", "สตูล", "สมุทรปราการ", "สมุทรสงคราม", "สมุทรสาคร", "สระแก้ว", "สระบุรี", "สิงห์บุรี", "สุโขทัย", "สุพรรณบุรี", "สุราษฎร์ธานี", "สุรินทร์", "หนองคาย", "หนองบัวลำภู", "อ่างทอง", "อำนาจเจริญ", "อุดรธานี", "อุตรดิตถ์", "อุทัยธานี", "อุบลราชธานี"
-        ].sort(); // เรียงตามตัวอักษร
+        ].sort();
 
-        // ข้อมูลอำเภอ (ตัวอย่างสำหรับ กทม. ส่วนจังหวัดอื่นจะใช้ Fallback)
         const districtsData = {
             "กรุงเทพมหานคร": ["เขตพระนคร", "เขตดุสิต", "เขตหนองจอก", "เขตบางรัก", "เขตบางเขน", "เขตบางกะปิ", "เขตปทุมวัน", "เขตป้อมปราบศัตรูพ่าย", "เขตพระโขนง", "เขตมีนบุรี", "เขตลาดกระบัง", "เขตยานนาวา", "เขตสัมพันธวงศ์", "เขตพญาไท", "เขตธนบุรี", "เขตบางกอกใหญ่", "เขตห้วยขวาง", "เขตคลองสาน", "เขตตลิ่งชัน", "เขตบางกอกน้อย", "เขตบางขุนเทียน", "เขตภาษีเจริญ", "เขตหนองแขม", "เขตราษฎร์บูรณะ", "เขตบางพลัด", "เขตดินแดง", "เขตบึงกุ่ม", "เขตสาทร", "เขตบางซื่อ", "เขตจตุจักร", "เขตบางคอแหลม", "เขตประเวศ", "เขตคลองเตย", "เขตสวนหลวง", "เขตจอมทอง", "เขตดอนเมือง", "เขตราชเทวี", "เขตลาดพร้าว", "เขตวัฒนา", "เขตบางแค", "เขตหลักสี่", "เขตสายไหม", "เขตคันนายาว", "เขตสะพานสูง", "เขตวังทองหลาง", "เขตคลองสามวา", "เขตบางนา", "เขตทวีวัฒนา", "เขตทุ่งครุ", "เขตบางบอน"]
         };
@@ -266,6 +292,7 @@
         // --- STATE MANAGEMENT ---
         let state = {
             posts: [],
+            favorites: [], // เก็บรายการโปรด
             currentView: 'home',
             images: [null, null, null],
             filterType: 'ทั้งหมด',
@@ -292,47 +319,34 @@
         };
 
         // --- HELPER FUNCTIONS ---
-        // ใส่จังหวัดลงใน Dropdown
         function populateProvinceSelects() {
             const filterSelect = document.getElementById('filter-province');
             const createSelect = document.getElementById('create-province');
-            
             const options = allProvinces.map(p => `<option value="${p}">${p}</option>`).join('');
-            
             if(filterSelect) filterSelect.innerHTML = '<option value="">ทุกจังหวัด</option>' + options;
             if(createSelect) createSelect.innerHTML = '<option value="">เลือกจังหวัด</option>' + options;
         }
 
-        // เมื่อเลือกจังหวัด เปลี่ยนอำเภอ
         function handleProvinceChange(context) {
             const provSelect = document.getElementById(context === 'filter' ? 'filter-province' : 'create-province');
             const amphoeSelect = document.getElementById(context === 'filter' ? 'filter-amphoe' : 'create-amphoe');
             const province = provSelect.value;
-            
-            // หาข้อมูลอำเภอ ถ้าไม่มีให้สร้างค่า Default (ป้องกันโปรแกรมพัง)
             let districts = districtsData[province];
             if (!districts && province) {
-                // ถ้าเลือกจังหวัดแล้วแต่ไม่มี data อำเภอ ให้ใส่ค่ากลางๆ ไว้ก่อน
                 districts = [`เมือง${province}`, "อำเภออื่นๆ"];
             } else if (!districts) {
                 districts = [];
             }
-
-            // สร้าง Options
             let html = `<option value="">${context === 'filter' ? 'ทุกอำเภอ' : 'เลือกอำเภอ'}</option>`;
             districts.forEach(d => html += `<option value="${d}">${d}</option>`);
-            
             amphoeSelect.innerHTML = html;
-            
             if (context === 'filter') renderHome();
         }
 
-        // จัดการรูปภาพ (Base64)
         function triggerFileInput(index) { document.getElementById(`file-${index}`).click(); }
         function handleFile(event, index) {
             const file = event.target.files[0];
             if(!file) return;
-            // เช็คขนาดไฟล์ (ไม่เกิน 2MB เพื่อไม่ให้ Google Sheet เต็มเร็ว)
             if(file.size > 2 * 1024 * 1024) {
                 Swal.fire('ไฟล์ใหญ่เกินไป', 'กรุณาใช้รูปขนาดไม่เกิน 2MB', 'warning');
                 return;
@@ -340,7 +354,6 @@
             const reader = new FileReader();
             reader.onload = (e) => {
                 state.images[index] = e.target.result;
-                // Update HTML ใน Slot ให้มี onclick viewImage เพื่อเปิดดูรูปแบบ Dialog
                 document.getElementById(`slot-${index}`).innerHTML = `
                     <img src="${e.target.result}" class="w-full h-full object-cover" onclick="viewImage(event, '${e.target.result}')">
                     <button type="button" onclick="removeImage(event, ${index})" class="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 w-5 h-5 flex items-center justify-center shadow-md z-10"><i data-lucide="x" width="12"></i></button>
@@ -356,20 +369,16 @@
             lucide.createIcons();
         }
 
-        // --- NEW FEATURE: VIEW FULL IMAGE DIALOG ---
         function viewImage(e, src) {
-            // หยุดการทำงานของ onclick ตัวแม่ (เพื่อไม่ให้เข้าไปหน้า detail หรือ trigger file input)
             if(e) e.stopPropagation();
-
             if(!src || src.includes('via.placeholder')) return;
-
             Swal.fire({
                 imageUrl: src,
                 imageAlt: 'รูปภาพขนาดเต็ม',
-                showConfirmButton: false, // ไม่ต้องมีปุ่ม OK
-                showCloseButton: true,    // ปุ่มปิด X
-                background: 'transparent', // พื้นหลังใส
-                backdrop: `rgba(0,0,0,0.85)`, // ฉากหลังดำโปร่งแสง
+                showConfirmButton: false,
+                showCloseButton: true,
+                background: 'transparent',
+                backdrop: `rgba(0,0,0,0.85)`,
                 customClass: {
                     popup: 'bg-transparent shadow-none p-0 overflow-visible',
                     image: 'swal2-image-custom',
@@ -378,22 +387,88 @@
             });
         }
 
+        // --- FAVORITES FEATURE ---
+        function loadFavorites() {
+            const saved = localStorage.getItem('fav_posts');
+            state.favorites = saved ? JSON.parse(saved) : [];
+            updateFavBadge();
+        }
+
+        function toggleFavorite(e, post) {
+            if(e) e.stopPropagation();
+            const index = state.favorites.findIndex(f => f.id === post.id);
+            if (index > -1) {
+                state.favorites.splice(index, 1);
+                // Toast removed
+                const toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+                toast.fire({ icon: 'success', title: 'ลบจากรายการโปรดแล้ว' });
+            } else {
+                state.favorites.push(post);
+                const toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+                toast.fire({ icon: 'success', title: 'บันทึกรายการโปรดแล้ว' });
+            }
+            localStorage.setItem('fav_posts', JSON.stringify(state.favorites));
+            updateFavBadge();
+            renderHome(); // Re-render to update heart icon
+        }
+
+        function updateFavBadge() {
+            const badge = document.getElementById('fav-badge');
+            if(badge) {
+                if(state.favorites.length > 0) badge.classList.remove('hidden');
+                else badge.classList.add('hidden');
+            }
+        }
+
+        function showFavorites() {
+            if (state.favorites.length === 0) {
+                 Swal.fire('รายการโปรด', 'ยังไม่มีรายการที่บันทึกไว้', 'info');
+                 return;
+            }
+            
+            // สร้างรายการ HTML สำหรับแสดงใน Dialog
+            const html = state.favorites.map(p => `
+                <div onclick="swal.close(); router.navigate('detail', ${p.id})" class="flex gap-3 p-2 border-b border-stone-100 items-center cursor-pointer hover:bg-stone-50 text-left">
+                    <div class="w-12 h-12 bg-stone-200 rounded-lg overflow-hidden shrink-0">
+                        <img src="${p.images && p.images[0] ? p.images[0] : 'https://via.placeholder.com/50'}" class="w-full h-full object-cover">
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="font-bold text-stone-800 text-sm truncate">${p.title}</div>
+                        <div class="text-xs text-stone-500">${p.type} • ฿${p.price.toLocaleString()}</div>
+                    </div>
+                    <i data-lucide="chevron-right" width="16" class="text-stone-300"></i>
+                </div>
+            `).join('');
+
+            Swal.fire({
+                title: 'รายการโปรดที่บันทึกไว้',
+                html: `<div class="max-h-[60vh] overflow-y-auto -mx-4 px-4">${html}</div>`,
+                showCloseButton: true,
+                showConfirmButton: false,
+                customClass: {
+                    popup: 'rounded-2xl',
+                    title: 'text-lg font-bold text-stone-800'
+                }
+            });
+            lucide.createIcons();
+        }
+
+        function isFavorite(id) {
+            return state.favorites.some(f => f.id === id);
+        }
+
         // --- API FUNCTIONS ---
         async function fetchPosts() {
             const list = document.getElementById('post-list');
             list.innerHTML = `<div class="flex flex-col items-center justify-center py-20 gap-3"><div class="loader"></div><p class="text-xs text-stone-400">กำลังโหลดข้อมูล...</p></div>`;
 
             try {
-                // ใช้ method GET
                 const res = await fetch(GAS_API_URL, { method: 'GET', redirect: 'follow' });
                 const json = await res.json();
-                
-                // รองรับ Data Structure หลายแบบจาก Google Script
                 const rawData = json.data || json; 
                 
                 if (!Array.isArray(rawData)) throw new Error('Format ข้อมูลไม่ถูกต้อง');
 
-                // FIX 1: Normalize Data
                 state.posts = rawData.map(p => ({
                     id: p.id,
                     title: String(p.title || ''),
@@ -422,22 +497,15 @@
             const prov = document.getElementById('filter-province').value;
             const amphoe = document.getElementById('filter-amphoe').value;
 
-            // Render Tabs
             document.getElementById('type-filters').innerHTML = performanceTypes.map(t => 
                 `<button onclick="state.filterType='${t}'; renderHome();" class="px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-all border ${state.filterType === t ? 'bg-thai-red text-white border-thai-red' : 'bg-white text-stone-500 border-stone-200'}">${t}</button>`
             ).join('');
 
-            // Filter Logic
             const filtered = state.posts.filter(p => {
-                // FIX 3: Robust Search String
                 const matchSearch = (`${p.title} ${p.description}`).toLowerCase().includes(search);
-                
                 const matchType = state.filterType === 'ทั้งหมด' || p.type === state.filterType;
-                
-                // FIX 2: Robust Filter (allow null/undefined to pass if not strictly filtering)
                 const matchProv = !prov || !p.province || p.province === prov;
                 const matchAmphoe = !amphoe || !p.amphoe || p.amphoe === amphoe;
-
                 return matchSearch && matchType && matchProv && matchAmphoe;
             });
 
@@ -474,13 +542,27 @@
                         `;
                     }
 
+                    // เช็คสถานะรายการโปรด
+                    const isFav = isFavorite(p.id);
+                    const heartClass = isFav ? "fill-thai-red text-thai-red" : "text-stone-300 hover:text-thai-red";
+
+                    // JSON.stringify for object passing in onclick (needs escaping)
+                    // But easier to just pass ID and find in state
+                    const postJson = JSON.stringify(p).replace(/"/g, '&quot;');
+
                     return `
-                    <div onclick="router.navigate('detail', ${p.id})" class="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden fade-in cursor-pointer hover:shadow-md transition-shadow group">
+                    <div onclick="router.navigate('detail', ${p.id})" class="bg-white rounded-2xl shadow-sm border border-stone-100 overflow-hidden fade-in cursor-pointer hover:shadow-md transition-shadow group relative">
                         <div class="flex h-32">
                             ${imageHtml}
                             <div class="w-2/3 p-3 flex flex-col justify-between">
                                 <div>
-                                    <h3 class="font-bold text-stone-800 text-sm line-clamp-2 leading-tight mb-1">${p.title}</h3>
+                                    <div class="flex justify-between items-start">
+                                        <h3 class="font-bold text-stone-800 text-sm line-clamp-2 leading-tight mb-1 pr-6">${p.title}</h3>
+                                        <!-- ปุ่มหัวใจ -->
+                                        <button onclick='toggleFavorite(event, ${postJson})' class="absolute top-3 right-3 p-1 rounded-full bg-white/50 backdrop-blur-sm hover:bg-white transition-all z-20 shadow-sm">
+                                            <i data-lucide="heart" width="16" class="${heartClass}"></i>
+                                        </button>
+                                    </div>
                                     <div class="flex items-center gap-1 text-[10px] text-stone-500">
                                         <i data-lucide="map-pin" width="10"></i> ${p.amphoe}, ${p.province}
                                     </div>
@@ -502,7 +584,6 @@
             if(!post) return router.back();
             
             const container = document.getElementById('detail-content');
-            // Image Slider HTML - เพิ่ม onclick viewImage ให้รูปในหน้า Detail ด้วย
             const slider = post.images.length > 0 
                 ? post.images.map(img => `<div class="shrink-0 w-full h-72 bg-stone-200 snap-center relative cursor-zoom-in" onclick="viewImage(event, '${img}')"><img src="${img}" class="w-full h-full object-cover"></div>`).join('')
                 : `<div class="w-full h-72 bg-stone-100 flex items-center justify-center text-stone-400">ไม่มีรูปภาพ</div>`;
@@ -556,7 +637,6 @@
             lucide.createIcons();
         }
 
-        // --- SUBMIT & DELETE ---
         document.getElementById('create-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = document.getElementById('submit-btn');
@@ -566,7 +646,7 @@
 
             const formData = new FormData(e.target);
             const data = {
-                action: 'create', // บอก Google Script ว่านี่คือการสร้าง
+                action: 'create',
                 id: Date.now().toString(),
                 title: formData.get('title'),
                 type: formData.get('type'),
@@ -577,23 +657,20 @@
                 phone: formData.get('phone'),
                 lineId: formData.get('lineId'),
                 description: formData.get('description'),
-                images: state.images.filter(img => img) // ส่ง Array รูปภาพ
+                images: state.images.filter(img => img)
             };
 
             try {
-                // ส่ง POST Request ไปยัง Google Script
                 await fetch(GAS_API_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // ใช้ text/plain เพื่อเลี่ยง CORS Preflight ที่ซับซ้อน
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify(data)
                 });
-
                 await Swal.fire({ icon: 'success', title: 'ลงประกาศสำเร็จ!', confirmButtonColor: '#9b1c1c' });
                 e.target.reset();
                 state.images = [null, null, null];
-                fetchPosts(); // โหลดข้อมูลใหม่
+                fetchPosts();
                 router.navigate('home');
-
             } catch (err) {
                 Swal.fire('ผิดพลาด', 'บันทึกไม่สำเร็จ กรุณาลองใหม่', 'error');
             } finally {
@@ -630,10 +707,10 @@
             }
         }
 
-        // --- INIT ---
         window.onload = () => {
-            populateProvinceSelects(); // สร้าง Dropdown จังหวัดก่อน
-            fetchPosts(); // ดึงข้อมูล API
+            populateProvinceSelects();
+            loadFavorites(); // โหลดรายการโปรด
+            fetchPosts();
             document.getElementById('search-input').addEventListener('input', renderHome);
             lucide.createIcons();
         };
